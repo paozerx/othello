@@ -1,12 +1,13 @@
 import tkinter as tk
 from tkinter import *
-# from botMrjarvis import jarvis
+from botMrjarvis import jarvis
+from botMsolivia import Bot_MsOlivia
 import os,sys,time
 
 
 
 class Othello_game:
-    def __init__(self):
+    def __init__(self,botvs):
         # ตัวแปรที่ใช้ข้ามฟังก์ชัน
         self.window_game = tk.Tk()
         self.window_game.title("Othello")
@@ -19,17 +20,18 @@ class Othello_game:
         self.another = "pyimage2"
         self.empty = "pyimage3"
         self.mark0 = "pyimage4"
-        self.colorturn = "white"
         self.check_coin_white = 2
         self.check_coin_black = 2
         self.check_marker = 0
         self.dichar = {1:"A",2:"B",3:"C",4:"D",5:"E",6:"F",7:"G",8:"H"}
         self.start_time = None  
-        self.elapsed_time = 0
         self.game_over = False
         self.start_time = time.time()
         self.listboard = []
         self.move_history = []
+        self.jarvis = jarvis()
+        self.olivia = Bot_MsOlivia()
+        self.botvs = botvs
         
         # สร้าง list None
         for x in range(8):
@@ -41,10 +43,20 @@ class Othello_game:
         self.create_widgets()
         self.marker()
         self.start_timer()
+        
        
 
     def create_widgets(self):
         # สร้าง Frame ของบอร์ด othello
+        if self.botvs == "pvp":
+            self.colorturn = "Player white"
+        if self.botvs == "jarvis":
+            self.colorturn = "Player"
+        if self.botvs == "olivia":
+            self.colorturn = "Player"
+        if self.botvs == "bot":
+            self.colorturn = "Mr.Jarvis"
+
         self.area_board = tk.Frame(self.window_game)
         self.area_board.grid(row=2, column=2,sticky=W+E+S+N)
         self.area_board.configure(bg='#212121')
@@ -67,14 +79,18 @@ class Othello_game:
         self.area_buttom = tk.Frame(self.window_game)
         self.area_buttom.grid(row=3,column=2,sticky=W+E+S+N)
         self.area_buttom.configure(bg='#212121')
-        self.turnswap = tk.Label(self.area_buttom, text=f"Turn : Player {self.colorturn}",font=('courier',19,'bold'),bg='#212121', fg='#f2f2f2')
+        self.turnswap = tk.Label(self.area_buttom, text=f"Turn : {self.colorturn}",font=('courier',19,'bold'),bg='#212121', fg='#f2f2f2')
+        if self.botvs == "jarvis" or self.botvs == "olivia":
+            self.turnswap.configure(text=f"Turn :    {self.colorturn}")
+        if self.botvs == "bot":
+            self.turnswap.configure(text=f"Turn :  {self.colorturn}")
         self.turnswap.place(x = 60,y = 4)
         self.turnpic = tk.Label(self.area_buttom, image=self.current,bg='#212121')
         self.turnpic.place(x = 360,y = -4)
         self.button_new = tk.Button(self.area_buttom, bg = '#FFD700', text='New Game',font=('courier',24,'bold'), command=self.back_to_menu)
         self.button_new.grid(row=1,column=1,pady=70)
         self.button_re = tk.Button(self.area_buttom, bg = '#ff3030', text='Reset Game',font=('courier',24,'bold'), command=self.reset_game)
-        self.button_re.grid(row=1,column=2,pady=70,padx=30)
+        self.button_re.grid(row=1,column=2,pady=70,padx=80)
 
         # Frame ของเวลา
         self.area_infomation = self.area_infomation = tk.Frame(self.window_game)
@@ -111,12 +127,13 @@ class Othello_game:
         
     def start_timer(self): # ฟังก์ชันของตัวจับเวลา ref: ChatGPT
         if not self.game_over:
-            elapsed = int(self.elapsed_time + time.time() - self.start_time)
+            elapsed = int(time.time() - self.start_time)
             minutes = elapsed // 60
             seconds = elapsed % 60
             self.time_str = f"Time: {minutes:02d}:{seconds:02d}"
             self.timer_label.configure(text=self.time_str)
             self.window_game.after(1000, self.start_timer)
+            
 
     def marker(self): # ฟังก์ชันเช็คว่าสามารถวางจุดไหนได้บ้างแล้ว mark มัน
         for i in range(8):
@@ -141,8 +158,18 @@ class Othello_game:
         if not(checkingwin): 
             self.wincheck()
 
+        if self.current == "pyimage2" and self.botvs == "jarvis":
+            self.botjarvis()
 
-        
+        if self.current == "pyimage2" and self.botvs == "olivia":
+            self.botolivia()
+
+        if self.current == "pyimage1" and self.botvs == "bot":
+            self.botjarvis()
+
+        if self.current == "pyimage2" and self.botvs == "bot":
+            self.botolivia()
+            
     
     def play_thegame(self, event): # ฟังก์ชันการเล่นเกม ได้แก่ การกิน การเดิน การสลับสี ส่งค่าการนับสกอร์ ส่งค่าประวัติการเล่น
         clicker = event.widget
@@ -166,7 +193,7 @@ class Othello_game:
                 if self.listboard[i][j]["image"] == self.mark0:
                     self.listboard[i][j]["image"] = self.empty
         
-        move = f"Player {self.colorturn}: row {k+1}, colunm {self.dichar[o+1]}"
+        move = f"{self.colorturn}: row {k+1}, column {self.dichar[o+1]}"
         self.move_history.append(move)
         self.move_history_text.delete("1.0", tk.END)
         for move in self.move_history:
@@ -178,8 +205,29 @@ class Othello_game:
         self.check_coin()
         self.current= "pyimage2" if self.current == "pyimage1" else "pyimage1"
         self.another= "pyimage1" if self.another == "pyimage2" else "pyimage2"
-        self.colorturn = "black" if self.colorturn == "white" else "white"
-        self.turnswap.configure(text=f"Turn : Player {self.colorturn}")
+        if self.botvs == "pvp":
+            self.colorturn = "Player black" if self.colorturn == "Player white" else "Player white"
+            self.turnswap.configure(text=f"Turn : {self.colorturn}")
+        if self.botvs == "jarvis":
+            self.colorturn = "Mr.Jarvis" if self.colorturn == "Player" else "Player"
+            if self.colorturn == "Player":
+                self.turnswap.configure(text=f"Turn :    {self.colorturn}")
+            elif self.colorturn == "Mr.Jarvis":
+                self.turnswap.configure(text=f"Turn :  {self.colorturn}")
+
+        if self.botvs == "olivia":
+            self.colorturn = "Ms.Olivia" if self.colorturn == "Player" else "Player"
+            if self.colorturn == "Player":
+                self.turnswap.configure(text=f"Turn :    {self.colorturn}")
+            elif self.colorturn == "Ms.Olivia":
+                self.turnswap.configure(text=f"Turn :  {self.colorturn}")
+        if self.botvs == "bot":
+            self.colorturn = "Ms.Olivia" if self.colorturn == "Mr.Jarvis" else "Mr.Jarvis"
+            if self.colorturn == "Mr.Jarvis":
+                self.turnswap.configure(text=f"Turn :  {self.colorturn}")
+            elif self.colorturn == "Ms.Olivia":
+                self.turnswap.configure(text=f"Turn :  {self.colorturn}")
+        
         self.turnpic.configure(image=self.current)
         self.num_write.configure(text=f"white : {self.check_coin_white}")
         self.num_black.configure(text=f"black : {self.check_coin_black}")
@@ -196,19 +244,35 @@ class Othello_game:
 
     def wincheck(self): # ฟังก์ชันเช็คแพ้ชนะและแสดงผล
         wincon = ""
+        t = ""
         if self.check_coin_white > self.check_coin_black:
-            wincon = "white"
+            t = "winnnnn!!"
+            if self.botvs == "pvp":
+                wincon = "Player white"
+            if self.botvs == "jarvis" or self.botvs == "olivia":
+                wincon = "Player"
+            if self.botvs == "bot":
+               wincon = "Mr.Jarvis"
         elif self.check_coin_black > self.check_coin_white:
-            wincon = "black"
+            t = "winnnnn!!"
+            if self.botvs == "pvp":
+                wincon = "Player black"
+            if self.botvs == "jarvis":
+                wincon = "Mr.Jarvis"
+            if self.botvs == "olivia":
+                wincon = "Ms.Olivia"
+            if self.botvs == "bot":
+               wincon = "Ms.Olivia"
         elif self.check_coin_white == self.check_coin_black:
-            wincon = "draw"
+            t = "drawwww!!!"
+            wincon = "Two player"
         self.game_over = True
         display = tk.Tk()
         display.title("Othello")
         display.geometry("700x500+450+400")
         display.configure(bg='#212121')
-        l1 = tk.Label(display,text=f"Player {wincon} winnnnn!!",font=('courier', 27, 'bold'),bg ='#212121',fg ='#f2f2f2')
-        l1.place(x = 125,y = 50)
+        l1 = tk.Label(display,text=f" {wincon} {t}",font=('courier', 27, 'bold'),bg ='#212121',fg ='#f2f2f2')
+        l1.place(x = 135,y = 50)
         timel = tk.Label(display,text=f"{self.time_str}",font=('courier', 19, 'bold'),bg ='#212121',fg ='#f2f2f2')
         timel.place(x = 255,y = 130)
         picl1 = tk.Label(display,text=f"White {self.check_coin_white} : {self.check_coin_black} Black",font=('courier', 19, 'bold'),bg ='#212121',fg ='#f2f2f2')
@@ -232,17 +296,26 @@ class Othello_game:
             for y in range(8):
                 self.listboard[x][y]["image"] = self.background
                 self.listboard[x][y].unbind("<Button-1>")
-                self.listboard[x][y].bind("<Button-1>", self.play_thegame)
         self.listboard[3][3].configure(image=self.white)
         self.listboard[3][4].configure(image=self.black)
         self.listboard[4][3].configure(image=self.black)
         self.listboard[4][4].configure(image=self.white)
-        self.colorturn = "white"
+        if self.botvs == "pvp":
+            self.colorturn = "Player white"
+            self.turnswap.configure(text=f"Turn : {self.colorturn}")
+        if self.botvs == "jarvis":
+            self.colorturn = "Player"
+            self.turnswap.configure(text=f"Turn :    {self.colorturn}")
+        if self.botvs == "olivia":
+            self.colorturn = "Player"
+            self.turnswap.configure(text=f"Turn :    {self.colorturn}")
+        if self.botvs == "bot":
+            self.colorturn = "Mr.Jarvis"
+            self.turnswap.configure(text=f"Turn :  {self.colorturn}")
         self.current = "pyimage1"
         self.another = "pyimage2"
         self.check_coin_white = 2
         self.check_coin_black = 2
-        self.turnswap.configure(text=f"Turn: Player {self.colorturn}")
         self.turnpic.configure(image=self.current)
         self.num_write.configure(text=f"white : {self.check_coin_white}")
         self.num_black.configure(text=f"black : {self.check_coin_black}")
@@ -259,8 +332,21 @@ class Othello_game:
     def back_to_menu(self): # ฟังก์ชัน restart โปรแกรม ref: https://bobbyhadz.com/blog/how-to-restart-python-script-from-within-itself
         os.execv(sys.executable, ['python'] + sys.argv)
 
-    
-
+    def botjarvis(self):
+        x = self.jarvis.control_area(self.mark0,self.listboard)
+        self.window_game.after(1500, lambda: self.listboard[x[0]][x[1]].event_generate("<Button-1>"))
+        self.window_game.after(1500, lambda: self.listboard[x[0]][x[1]].event_generate("<ButtonRelease-1>"))
+       
+    def botolivia(self):
+        get = self.olivia.check_position_can_move(self.mark0,self.listboard,self.another,self.empty,self.current)
+        self.window_game.after(1500, lambda: self.listboard[get[0]][get[1]].event_generate("<Button-1>"))
+        self.window_game.after(1500, lambda: self.listboard[get[0]][get[1]].event_generate("<ButtonRelease-1>"))
+        
+        
+        
+        
+        
+        
 
     # ตั้งแต่จุดนี้จะเป็นฟังก์ชันการเช็คหมากทั้งหมด ref: กานต์ สุขสมกิจ
     
